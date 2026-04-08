@@ -10,8 +10,50 @@ interface CompileTabProps {
   onCompiled: (artifacts: ContractArtifact[]) => void;
 }
 
+const STARTER_CONTRACT = `use aztec::macros::aztec;
+
+#[aztec]
+contract Counter {
+    use aztec::{
+        macros::{functions::{external, initializer}, storage::storage},
+        state_vars::PublicMutable,
+    };
+
+    #[storage]
+    struct Storage<Context> {
+        count: PublicMutable<u64, Context>,
+    }
+
+    #[initializer]
+    #[external("public")]
+    fn constructor(initial_count: u64) {
+        self.storage.count.write(initial_count);
+    }
+
+    #[external("public")]
+    fn increment() {
+        let current = self.storage.count.read();
+        self.storage.count.write(current + 1);
+    }
+
+    #[external("utility")]
+    unconstrained fn get_count() -> pub u64 {
+        self.storage.count.read()
+    }
+}
+`;
+
+const STARTER_NARGO_TOML = `[package]
+name = "counter"
+type = "contract"
+
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "v4.0.0-devnet.2-patch.0", directory = "aztec" }
+`;
+
 export default function CompileTab({ onCompiled }: CompileTabProps) {
   const [loading, setLoading] = useState(false);
+  const [scaffolding, setScaffolding] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [compileErrors, setCompileErrors] = useState<CompileError[]>([]);
@@ -300,13 +342,39 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
     }
   }
 
+  async function handleNewProject() {
+    setScaffolding(true);
+    setError('');
+    try {
+      await remixClient.writeFile('aztec-project/Nargo.toml', STARTER_NARGO_TOML);
+      await remixClient.writeFile('aztec-project/src/main.nr', STARTER_CONTRACT);
+      // Open the file in the editor
+      await remixClient.call('fileManager', 'switchFile', 'aztec-project/src/main.nr');
+      setSuccess('Project created at aztec-project/. Open src/main.nr and click Compile.');
+      await remixClient.logToTerminal('Created new Aztec project at aztec-project/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create project');
+    } finally {
+      setScaffolding(false);
+    }
+  }
+
   return (
     <div>
       <div className="section">
         <div className="section-title">Compile</div>
-        <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+        <p style={{ fontSize: 11, color: 'var(--text-1)', marginBottom: 10 }}>
           Open a <code>.nr</code> contract file in the editor, then click Compile.
         </p>
+
+        <button
+          className="btn btn-secondary btn-full"
+          onClick={handleNewProject}
+          disabled={scaffolding}
+          style={{ marginBottom: 8 }}
+        >
+          {scaffolding ? <><span className="spinner" /> Creating...</> : 'New Aztec Project'}
+        </button>
 
         {currentFile && (
           <div className="form-group">
