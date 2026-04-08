@@ -31,3 +31,4 @@ info/
 # Claude / Agents
 .claude/
 .agents/
+skills-lock.json
