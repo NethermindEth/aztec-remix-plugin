@@ -233,6 +233,76 @@ export class AztecService {
     }
   }
 
+  // ── AuthWitness ──
+
+  async createAuthWit(opts: {
+    functionName: string;
+    caller: string;
+    contractAddress: string;
+    from: string;
+    args?: unknown[];
+    alias?: string;
+  }): Promise<{ output: string }> {
+    this.ensureConnected();
+
+    const cliArgs = [
+      'create-authwit',
+      opts.functionName,
+      opts.caller,
+      '--contract-address', opts.contractAddress,
+      '--from', opts.from,
+    ];
+
+    if (opts.args && opts.args.length > 0) {
+      cliArgs.push('--args', ...opts.args.map(String));
+    }
+    if (opts.alias) {
+      cliArgs.push('-a', opts.alias);
+    }
+
+    const { stdout } = await this.wallet(cliArgs);
+    return { output: stdout.trim() };
+  }
+
+  async authorizeAction(opts: {
+    functionName: string;
+    caller: string;
+    contractAddress: string;
+    from: string;
+    args?: unknown[];
+  }): Promise<{ output: string }> {
+    this.ensureConnected();
+
+    const cliArgs = [
+      'authorize-action',
+      opts.functionName,
+      opts.caller,
+      '--contract-address', opts.contractAddress,
+      '--from', opts.from,
+    ];
+
+    if (opts.args && opts.args.length > 0) {
+      cliArgs.push('--args', ...opts.args.map(String));
+    }
+
+    const { stdout } = await this.wallet(cliArgs);
+    return { output: stdout.trim() };
+  }
+
+  // ── Transaction History ──
+
+  async getRecentTxs(): Promise<{ output: string }> {
+    this.ensureConnected();
+    const { stdout } = await this.wallet(['get-tx']);
+    return { output: stdout.trim() };
+  }
+
+  async getTxDetails(txHash: string): Promise<{ output: string }> {
+    this.ensureConnected();
+    const { stdout } = await this.wallet(['get-tx', txHash]);
+    return { output: stdout.trim() };
+  }
+
   // ── Helpers ──
 
   isConnected(): boolean {

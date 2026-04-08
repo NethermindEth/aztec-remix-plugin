@@ -11,6 +11,8 @@ import { createDeployRouter } from './routes/deploy.js';
 import { createInteractRouter } from './routes/interact.js';
 import { createSettingsRouter } from './routes/settings.js';
 import { createArtifactsRouter } from './routes/artifacts.js';
+import { createAuthWitRouter } from './routes/authwit.js';
+import { createTransactionsRouter } from './routes/transactions.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,6 +37,8 @@ app.use('/deploy', createDeployRouter(aztecService));
 app.use('/interact', createInteractRouter(aztecService));
 app.use('/settings', createSettingsRouter(aztecService));
 app.use('/artifacts', createArtifactsRouter());
+app.use('/authwit', createAuthWitRouter(aztecService));
+app.use('/transactions', createTransactionsRouter(aztecService));
 
 // Create HTTP server and attach WebSocket
 const server = http.createServer(app);

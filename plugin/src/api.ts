@@ -133,4 +133,43 @@ export function interact(
   });
 }
 
+// ── AuthWitness ──
+
+export function createAuthWit(opts: {
+  functionName: string;
+  caller: string;
+  contractAddress: string;
+  from: string;
+  args?: unknown[];
+  alias?: string;
+}): Promise<{ output: string }> {
+  return request('/authwit/create', {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  });
+}
+
+export function authorizeAction(opts: {
+  functionName: string;
+  caller: string;
+  contractAddress: string;
+  from: string;
+  args?: unknown[];
+}): Promise<{ output: string }> {
+  return request('/authwit/authorize', {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  });
+}
+
+// ── Transactions ──
+
+export function getRecentTxs(): Promise<{ output: string }> {
+  return request('/transactions');
+}
+
+export function getTxDetails(txHash: string): Promise<{ output: string }> {
+  return request(`/transactions/${txHash}`);
+}
+
 export { ApiError };

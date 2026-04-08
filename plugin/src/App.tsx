@@ -4,9 +4,11 @@ import Header from './components/Header';
 import CompileTab from './components/CompileTab';
 import DeployTab from './components/DeployTab';
 import InteractTab from './components/InteractTab';
+import AuthWitTab from './components/AuthWitTab';
+import TransactionsTab from './components/TransactionsTab';
 import type { NetworkInfo, AccountInfo, ContractArtifact, DeployedContract } from './types';
 
-type Tab = 'compile' | 'deploy' | 'interact';
+type Tab = 'compile' | 'deploy' | 'interact' | 'authwit' | 'txs';
 
 const DEPLOYED_CONTRACTS_PATH = '.aztec/deployed-contracts.json';
 
@@ -18,11 +20,9 @@ export default function App() {
   const [artifacts, setArtifacts] = useState<ContractArtifact[]>([]);
   const [deployedContracts, setDeployedContracts] = useState<DeployedContract[]>([]);
 
-  // Wait for Remix plugin client to connect, then load persisted state
   useEffect(() => {
     remixClient.onload(async () => {
       setReady(true);
-      // Load persisted deployed contracts
       try {
         const raw = await remixClient.readFile(DEPLOYED_CONTRACTS_PATH);
         const contracts = JSON.parse(raw) as DeployedContract[];
@@ -30,9 +30,8 @@ export default function App() {
           setDeployedContracts(contracts);
         }
       } catch {
-        // No persisted contracts yet — that's fine
+        // No persisted contracts
       }
-      // Load persisted artifacts from artifacts/ directory
       try {
         const entries = await remixClient.readDir('artifacts');
         for (const [name, info] of Object.entries(entries)) {
@@ -47,25 +46,21 @@ export default function App() {
                 });
               }
             } catch {
-              // Skip malformed artifacts
+              // Skip malformed
             }
           }
         }
       } catch {
-        // No artifacts/ directory yet
+        // No artifacts/ directory
       }
     });
   }, []);
 
-  // Persist deployed contracts whenever the list changes
   const persistContracts = useCallback(async (contracts: DeployedContract[]) => {
     try {
-      await remixClient.writeFile(
-        DEPLOYED_CONTRACTS_PATH,
-        JSON.stringify(contracts, null, 2),
-      );
+      await remixClient.writeFile(DEPLOYED_CONTRACTS_PATH, JSON.stringify(contracts, null, 2));
     } catch {
-      // Silently fail — persistence is best-effort
+      // Best-effort
     }
   }, []);
 
@@ -76,9 +71,7 @@ export default function App() {
   function handleCompiled(newArtifacts: ContractArtifact[]) {
     setArtifacts((prev) => {
       const map = new Map(prev.map((a) => [a.name, a]));
-      for (const a of newArtifacts) {
-        map.set(a.name, a);
-      }
+      for (const a of newArtifacts) map.set(a.name, a);
       return Array.from(map.values());
     });
     setActiveTab('deploy');
@@ -122,24 +115,15 @@ export default function App() {
       />
 
       <div className="tab-bar">
-        <button
-          className={`tab-btn ${activeTab === 'compile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('compile')}
-        >
-          Compile
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'deploy' ? 'active' : ''}`}
-          onClick={() => setActiveTab('deploy')}
-        >
-          Deploy
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'interact' ? 'active' : ''}`}
-          onClick={() => setActiveTab('interact')}
-        >
-          Interact
-        </button>
+        {(['compile', 'deploy', 'interact', 'authwit', 'txs'] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {{ compile: 'Compile', deploy: 'Deploy', interact: 'Interact', authwit: 'AuthWit', txs: 'Txs' }[tab]}
+          </button>
+        ))}
       </div>
 
       <div className="plugin-content">
@@ -160,6 +144,15 @@ export default function App() {
             artifacts={artifacts}
             onContractAdded={handleContractAdded}
           />
+        )}
+        {activeTab === 'authwit' && (
+          <AuthWitTab
+            contracts={deployedContracts}
+            accounts={accounts}
+          />
+        )}
+        {activeTab === 'txs' && (
+          <TransactionsTab />
         )}
       </div>
     </div>

@@ -37,6 +37,29 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
     }
   }
 
+  /** Recursively walk a directory in Remix, collecting all .nr files */
+  async function walkDir(
+    dir: string,
+    relativeTo: string,
+    sources: Record<string, string>,
+  ): Promise<void> {
+    try {
+      const entries = await remixClient.readDir(dir);
+      for (const [name, info] of Object.entries(entries)) {
+        const fullPath = `${dir}/${name}`;
+        const relPath = relativeTo ? `${relativeTo}/${name}` : name;
+        if (info.isDirectory) {
+          await walkDir(fullPath, relPath, sources);
+        } else if (name.endsWith('.nr')) {
+          const src = await remixClient.readFile(fullPath);
+          sources[relPath] = src;
+        }
+      }
+    } catch {
+      // Directory doesn't exist or unreadable
+    }
+  }
+
   async function collectSources(filePath: string): Promise<Record<string, string>> {
     const sources: Record<string, string> = {};
     const content = await remixClient.readFile(filePath);
@@ -47,25 +70,21 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
       const projectRoot = parts.slice(0, srcIndex).join('/');
       const srcDir = projectRoot ? `${projectRoot}/src` : 'src';
 
+      // Include Nargo.toml if it exists
       if (projectRoot) {
         try {
           const nargoToml = await remixClient.readFile(`${projectRoot}/Nargo.toml`);
           sources['Nargo.toml'] = nargoToml;
         } catch {
-          // No Nargo.toml
+          // No Nargo.toml — backend generates default
         }
       }
 
-      try {
-        const entries = await remixClient.readDir(srcDir);
-        for (const [name, info] of Object.entries(entries)) {
-          if (!info.isDirectory && name.endsWith('.nr')) {
-            const fullPath = `${srcDir}/${name}`;
-            const src = await remixClient.readFile(fullPath);
-            sources[`src/${name}`] = src;
-          }
-        }
-      } catch {
+      // Recursively collect all .nr files from src/
+      await walkDir(srcDir, 'src', sources);
+
+      // Fallback if recursive walk found nothing
+      if (!Object.keys(sources).some((k) => k.endsWith('.nr'))) {
         sources['src/main.nr'] = content;
       }
     } else {
