@@ -9,6 +9,8 @@ import { createNetworkRouter } from './routes/network.js';
 import { createAccountsRouter } from './routes/accounts.js';
 import { createDeployRouter } from './routes/deploy.js';
 import { createInteractRouter } from './routes/interact.js';
+import { createSettingsRouter } from './routes/settings.js';
+import { createArtifactsRouter } from './routes/artifacts.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,6 +33,8 @@ app.use('/network', createNetworkRouter(aztecService));
 app.use('/accounts', createAccountsRouter(aztecService));
 app.use('/deploy', createDeployRouter(aztecService));
 app.use('/interact', createInteractRouter(aztecService));
+app.use('/settings', createSettingsRouter(aztecService));
+app.use('/artifacts', createArtifactsRouter());
 
 // Create HTTP server and attach WebSocket
 const server = http.createServer(app);

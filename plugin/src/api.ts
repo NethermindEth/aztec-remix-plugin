@@ -74,6 +74,36 @@ export function importTestAccounts(): Promise<AccountInfo[]> {
   return request('/accounts/import-test', { method: 'POST' });
 }
 
+export function createAccount(alias?: string): Promise<AccountInfo> {
+  return request('/accounts/create', {
+    method: 'POST',
+    body: JSON.stringify({ alias }),
+  });
+}
+
+// ── Settings ──
+
+export function getProverMode(): Promise<{ mode: string }> {
+  return request('/settings/prover');
+}
+
+export function setProverMode(mode: string): Promise<{ mode: string }> {
+  return request('/settings/prover', {
+    method: 'PUT',
+    body: JSON.stringify({ mode }),
+  });
+}
+
+// ── Artifacts ──
+
+export function listArtifacts(): Promise<{ artifacts: { name: string; size: number; created: string }[]; totalSize: number }> {
+  return request('/artifacts');
+}
+
+export function cleanArtifacts(): Promise<{ deleted: number }> {
+  return request('/artifacts', { method: 'DELETE' });
+}
+
 // ── Deploy ──
 
 export function deploy(

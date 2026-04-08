@@ -12,7 +12,13 @@ export default function Header({ networkInfo, onConnect, onAccountsLoaded }: Hea
   const [nodeUrl, setNodeUrl] = useState('http://localhost:8080');
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newAlias, setNewAlias] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [proverMode, setProverMode] = useState('none');
+  const [cleaning, setCleaning] = useState(false);
   const [error, setError] = useState('');
+  const [statusMsg, setStatusMsg] = useState('');
 
   const connected = networkInfo?.connected ?? false;
 
@@ -23,12 +29,19 @@ export default function Header({ networkInfo, onConnect, onAccountsLoaded }: Hea
       const info = await api.connect(nodeUrl);
       onConnect(info);
 
-      // Auto-fetch accounts after connecting
       try {
         const accounts = await api.getAccounts();
         onAccountsLoaded(accounts);
       } catch {
-        // No accounts yet — that's fine
+        // No accounts yet
+      }
+
+      // Fetch current prover mode
+      try {
+        const { mode } = await api.getProverMode();
+        setProverMode(mode);
+      } catch {
+        // Default to none
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
@@ -50,6 +63,47 @@ export default function Header({ networkInfo, onConnect, onAccountsLoaded }: Hea
     }
   }
 
+  async function handleCreateAccount() {
+    if (!newAlias.trim()) return;
+    setCreating(true);
+    setError('');
+    try {
+      await api.createAccount(newAlias.trim());
+      // Refresh account list
+      const accounts = await api.getAccounts();
+      onAccountsLoaded(accounts);
+      setNewAlias('');
+      setShowCreate(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create account');
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleProverChange(mode: string) {
+    try {
+      const result = await api.setProverMode(mode);
+      setProverMode(result.mode);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set prover mode');
+    }
+  }
+
+  async function handleCleanArtifacts() {
+    setCleaning(true);
+    setError('');
+    setStatusMsg('');
+    try {
+      const result = await api.cleanArtifacts();
+      setStatusMsg(`Cleaned ${result.deleted} artifact(s)`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clean artifacts');
+    } finally {
+      setCleaning(false);
+    }
+  }
+
   return (
     <div className="header">
       <div className="header-title">
@@ -61,6 +115,8 @@ export default function Header({ networkInfo, onConnect, onAccountsLoaded }: Hea
           </span>
         )}
       </div>
+
+      {/* Connection */}
       <div className="connection-row">
         <input
           type="text"
@@ -77,18 +133,75 @@ export default function Header({ networkInfo, onConnect, onAccountsLoaded }: Hea
           {loading ? <span className="spinner" /> : connected ? 'Reconnect' : 'Connect'}
         </button>
       </div>
+
       {connected && (
-        <div style={{ marginTop: 6 }}>
-          <button
-            className="btn btn-secondary btn-small"
-            onClick={handleImportTestAccounts}
-            disabled={importing}
-          >
-            {importing ? <><span className="spinner" /> Importing...</> : 'Import Test Accounts'}
-          </button>
-        </div>
+        <>
+          {/* Account management */}
+          <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-secondary btn-small"
+              onClick={handleImportTestAccounts}
+              disabled={importing}
+            >
+              {importing ? <><span className="spinner" /> Importing...</> : 'Import Test Accounts'}
+            </button>
+            <button
+              className="btn btn-secondary btn-small"
+              onClick={() => setShowCreate(!showCreate)}
+            >
+              {showCreate ? 'Cancel' : 'Create Account'}
+            </button>
+          </div>
+
+          {showCreate && (
+            <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
+              <input
+                type="text"
+                value={newAlias}
+                onChange={(e) => setNewAlias(e.target.value)}
+                placeholder="Account alias (e.g. myaccount)"
+                style={{ flex: 1 }}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateAccount()}
+              />
+              <button
+                className="btn btn-primary btn-small"
+                onClick={handleCreateAccount}
+                disabled={creating || !newAlias.trim()}
+              >
+                {creating ? <span className="spinner" /> : 'Create'}
+              </button>
+            </div>
+          )}
+
+          {/* Settings row */}
+          <div style={{ marginTop: 8, display: 'flex', gap: 12, alignItems: 'center', fontSize: 11 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <label style={{ margin: 0, fontSize: 11, textTransform: 'none', letterSpacing: 0 }}>Prover:</label>
+              <select
+                value={proverMode}
+                onChange={(e) => handleProverChange(e.target.value)}
+                style={{ width: 'auto', padding: '2px 6px', fontSize: 11 }}
+              >
+                <option value="none">None (fast)</option>
+                <option value="wasm">WASM</option>
+                <option value="native">Native</option>
+              </select>
+            </div>
+
+            <button
+              className="btn btn-secondary btn-small"
+              onClick={handleCleanArtifacts}
+              disabled={cleaning}
+              style={{ fontSize: 11, padding: '2px 8px' }}
+            >
+              {cleaning ? <span className="spinner" /> : 'Clean Artifacts'}
+            </button>
+          </div>
+        </>
       )}
+
       {error && <div className="error-msg" style={{ marginTop: 8 }}>{error}</div>}
+      {statusMsg && <div className="success-msg" style={{ marginTop: 8 }}>{statusMsg}</div>}
     </div>
   );
 }
