@@ -1,14 +1,9 @@
 import { Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { AztecService } from '../services/aztec-service.js';
+import { ARTIFACT_DIR } from '../config.js';
 import type { DeployRequest, ApiResponse, DeployResult } from '../types.js';
-
-// Persistent directory for artifacts so aztec-wallet aliases keep working.
-// aztec-wallet deploy registers the artifact path internally — if the file
-// is deleted, subsequent interact calls via alias fail with "Contract not found".
-const ARTIFACT_DIR = path.join(os.homedir(), '.aztec', 'plugin-artifacts');
 
 async function ensureArtifactDir() {
   await fs.mkdir(ARTIFACT_DIR, { recursive: true });

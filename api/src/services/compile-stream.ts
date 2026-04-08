@@ -3,20 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { safePath } from './path-utils.js';
-
-const DEFAULT_NARGO_TOML = (name: string) => `[package]
-name = "${name}"
-type = "contract"
-
-[dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "v4.0.0-devnet.2-patch.0", directory = "aztec" }
-`;
-
-function getAztecBinaryPath(): string {
-  if (process.env.AZTEC_PATH) return process.env.AZTEC_PATH;
-  const home = os.homedir();
-  return path.join(home, '.aztec', 'current', 'node_modules', '.bin', 'aztec');
-}
+import { getAztecBinaryPath, DEFAULT_NARGO_TOML } from '../config.js';
 
 export interface StreamCallbacks {
   onStdout: (data: string) => void;
@@ -78,10 +65,15 @@ export async function compileWithStream(
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    // Set a timeout
+    // Guard: ensure callbacks fire exactly once (timeout vs close race)
+    let finished = false;
+
     const timeout = setTimeout(() => {
+      if (finished) return;
+      finished = true;
       child.kill('SIGTERM');
       callbacks.onError('Compilation timed out after 5 minutes');
+      fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     }, 300_000);
 
     child.stdout.on('data', (chunk: Buffer) => {
@@ -94,6 +86,8 @@ export async function compileWithStream(
 
     child.on('close', async (exitCode) => {
       clearTimeout(timeout);
+      if (finished) return; // Timeout already fired — skip
+      finished = true;
 
       // Read artifacts
       const artifacts: object[] = [];
@@ -119,6 +113,8 @@ export async function compileWithStream(
 
     child.on('error', async (err) => {
       clearTimeout(timeout);
+      if (finished) return;
+      finished = true;
       callbacks.onError(err.message);
       await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     });

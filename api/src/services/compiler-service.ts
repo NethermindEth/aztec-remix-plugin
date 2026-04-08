@@ -5,22 +5,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { CompileResult, CompileError } from '../types.js';
 import { safePath } from './path-utils.js';
+import { getAztecBinaryPath, DEFAULT_NARGO_TOML } from '../config.js';
 
 const execFileAsync = promisify(execFile);
-
-const DEFAULT_NARGO_TOML = (name: string) => `[package]
-name = "${name}"
-type = "contract"
-
-[dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "v4.0.0-devnet.2-patch.0", directory = "aztec" }
-`;
-
-function getAztecBinaryPath(): string {
-  if (process.env.AZTEC_PATH) return process.env.AZTEC_PATH;
-  const home = os.homedir();
-  return path.join(home, '.aztec', 'current', 'node_modules', '.bin', 'aztec');
-}
 
 /**
  * Parse compile errors from nargo/aztec stderr output.

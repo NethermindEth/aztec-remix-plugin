@@ -1,11 +1,9 @@
 import { Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { AztecService } from '../services/aztec-service.js';
+import { ARTIFACT_DIR } from '../config.js';
 import type { ApiResponse } from '../types.js';
-
-const ARTIFACT_DIR = path.join(os.homedir(), '.aztec', 'plugin-artifacts');
 
 interface AuthWitRequest {
   functionName: string;
@@ -43,7 +41,7 @@ export function createAuthWitRouter(aztecService: AztecService) {
       // Write artifact to a file — create-authwit needs --contract-artifact <path>
       await fs.mkdir(ARTIFACT_DIR, { recursive: true });
       const artifactName = (body.artifact as { name?: string }).name || 'contract';
-      const artifactFile = path.join(ARTIFACT_DIR, `${artifactName}-authwit.json`);
+      const artifactFile = path.join(ARTIFACT_DIR, `${artifactName}-authwit-${Date.now()}.json`);
       await fs.writeFile(artifactFile, JSON.stringify(body.artifact));
 
       const result = await aztecService.createAuthWit({

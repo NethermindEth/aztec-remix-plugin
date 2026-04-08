@@ -2,20 +2,12 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { NetworkInfo, AccountInfo } from '../types.js';
+import { getWalletBinaryPath, SETTINGS_PATH } from '../config.js';
 
 const execFileAsync = promisify(execFile);
 
-function getWalletBinaryPath(): string {
-  if (process.env.AZTEC_WALLET_PATH) return process.env.AZTEC_WALLET_PATH;
-  const home = os.homedir();
-  return path.join(home, '.aztec', 'current', 'node_modules', '.bin', 'aztec-wallet');
-}
-
 export type ProverMode = 'none' | 'wasm' | 'native';
-
-const SETTINGS_PATH = path.join(os.homedir(), '.aztec', 'plugin-settings.json');
 
 interface PersistedSettings {
   proverMode?: ProverMode;
@@ -27,9 +19,15 @@ export class AztecService {
   private walletBin: string;
   private proverMode: ProverMode = 'none';
 
-  constructor() {
+  private constructor() {
     this.walletBin = getWalletBinaryPath();
-    this.loadSettings();
+  }
+
+  /** Factory method — awaits settings load before returning. */
+  static async create(): Promise<AztecService> {
+    const service = new AztecService();
+    await service.loadSettings();
+    return service;
   }
 
   // ── Settings ──
@@ -42,7 +40,7 @@ export class AztecService {
         this.proverMode = settings.proverMode;
       }
     } catch {
-      // No settings file yet
+      // No settings file yet — use defaults
     }
   }
 
@@ -71,6 +69,7 @@ export class AztecService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 }),
+      signal: AbortSignal.timeout(30_000),
     });
 
     const data = await res.json() as { result?: unknown; error?: { message: string } };
@@ -178,7 +177,6 @@ export class AztecService {
 
     const { stdout } = await this.wallet(cliArgs);
 
-    // Parse: "Address: 0x..." or "Account address: 0x..."
     const addressMatch = stdout.match(/[Aa]ddress:\s*(0x[0-9a-fA-F]+)/);
     if (!addressMatch) {
       throw new Error(`Account created but could not parse address from output:\n${stdout}`);

@@ -1,11 +1,9 @@
 import { Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { AztecService } from '../services/aztec-service.js';
+import { ARTIFACT_DIR } from '../config.js';
 import type { ApiResponse } from '../types.js';
-
-const ARTIFACT_DIR = path.join(os.homedir(), '.aztec', 'plugin-artifacts');
 
 interface RegisterContractRequest {
   address: string;

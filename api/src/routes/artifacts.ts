@@ -1,10 +1,8 @@
 import { Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
+import { ARTIFACT_DIR } from '../config.js';
 import type { ApiResponse } from '../types.js';
-
-const ARTIFACT_DIR = path.join(os.homedir(), '.aztec', 'plugin-artifacts');
 
 // Default: clean artifacts older than 7 days
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
