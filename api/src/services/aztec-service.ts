@@ -239,6 +239,7 @@ export class AztecService {
     functionName: string;
     caller: string;
     contractAddress: string;
+    contractArtifactPath: string;
     from: string;
     args?: unknown[];
     alias?: string;
@@ -250,6 +251,7 @@ export class AztecService {
       opts.functionName,
       opts.caller,
       '--contract-address', opts.contractAddress,
+      '--contract-artifact', opts.contractArtifactPath,
       '--from', opts.from,
     ];
 

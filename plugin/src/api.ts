@@ -139,6 +139,7 @@ export function createAuthWit(opts: {
   functionName: string;
   caller: string;
   contractAddress: string;
+  artifact: object;
   from: string;
   args?: unknown[];
   alias?: string;

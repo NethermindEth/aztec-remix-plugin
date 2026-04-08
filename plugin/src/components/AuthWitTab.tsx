@@ -60,6 +60,7 @@ export default function AuthWitTab({ contracts, accounts }: AuthWitTabProps) {
           functionName: selectedFunction,
           caller: getAccountRef(caller),
           contractAddress: contract.address,
+          artifact: contract.artifact,
           from: getAccountRef(from),
           args: fnArgs.length > 0 ? fnArgs : undefined,
           alias: alias || undefined,
