@@ -97,6 +97,9 @@ class AztecPluginClient extends PluginClient {
 }
 
 const client = new AztecPluginClient();
+// Prevent Remix from injecting Bootstrap CSS into our iframe.
+// We handle our own theming via themeChanged listener + data-theme attribute.
+(client.options as any).customTheme = true;
 createClient(client);
 
 export default client;
