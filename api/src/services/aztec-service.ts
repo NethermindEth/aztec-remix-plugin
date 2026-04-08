@@ -15,6 +15,12 @@ function getWalletBinaryPath(): string {
 
 export type ProverMode = 'none' | 'wasm' | 'native';
 
+const SETTINGS_PATH = path.join(os.homedir(), '.aztec', 'plugin-settings.json');
+
+interface PersistedSettings {
+  proverMode?: ProverMode;
+}
+
 export class AztecService {
   private nodeUrl: string = 'http://localhost:8080';
   private connected: boolean = false;
@@ -23,9 +29,31 @@ export class AztecService {
 
   constructor() {
     this.walletBin = getWalletBinaryPath();
+    this.loadSettings();
   }
 
   // ── Settings ──
+
+  private async loadSettings(): Promise<void> {
+    try {
+      const raw = await fs.readFile(SETTINGS_PATH, 'utf-8');
+      const settings = JSON.parse(raw) as PersistedSettings;
+      if (settings.proverMode && ['none', 'wasm', 'native'].includes(settings.proverMode)) {
+        this.proverMode = settings.proverMode;
+      }
+    } catch {
+      // No settings file yet
+    }
+  }
+
+  private async saveSettings(): Promise<void> {
+    try {
+      await fs.mkdir(path.dirname(SETTINGS_PATH), { recursive: true });
+      await fs.writeFile(SETTINGS_PATH, JSON.stringify({ proverMode: this.proverMode }, null, 2));
+    } catch {
+      // Best-effort
+    }
+  }
 
   getProverMode(): ProverMode {
     return this.proverMode;
@@ -33,6 +61,7 @@ export class AztecService {
 
   setProverMode(mode: ProverMode): void {
     this.proverMode = mode;
+    this.saveSettings();
   }
 
   // ── JSON-RPC helper for node_* methods ──
@@ -283,6 +312,29 @@ export class AztecService {
       '--from', opts.from,
     ];
 
+    if (opts.args && opts.args.length > 0) {
+      cliArgs.push('--args', ...opts.args.map(String));
+    }
+
+    const { stdout } = await this.wallet(cliArgs);
+    return { output: stdout.trim() };
+  }
+
+  // ── Register Contract ──
+
+  async registerContract(opts: {
+    address: string;
+    artifactPath: string;
+    alias?: string;
+    args?: unknown[];
+  }): Promise<{ output: string }> {
+    this.ensureConnected();
+
+    const cliArgs = ['register-contract', opts.address, opts.artifactPath];
+
+    if (opts.alias) {
+      cliArgs.push('-a', opts.alias);
+    }
     if (opts.args && opts.args.length > 0) {
       cliArgs.push('--args', ...opts.args.map(String));
     }

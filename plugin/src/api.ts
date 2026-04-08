@@ -173,4 +173,30 @@ export function getTxDetails(txHash: string): Promise<{ output: string }> {
   return request(`/transactions/${txHash}`);
 }
 
+// ── Register Contract ──
+
+export function registerContract(opts: {
+  address: string;
+  artifact: object;
+  alias?: string;
+  args?: unknown[];
+}): Promise<{ output: string }> {
+  return request('/register-contract', {
+    method: 'POST',
+    body: JSON.stringify(opts),
+  });
+}
+
+// ── Artifact Cleanup ──
+
+export function autoCleanupArtifacts(opts?: {
+  maxAgeDays?: number;
+  maxSizeMb?: number;
+}): Promise<{ deleted: number }> {
+  return request('/artifacts/cleanup', {
+    method: 'POST',
+    body: JSON.stringify(opts || {}),
+  });
+}
+
 export { ApiError };

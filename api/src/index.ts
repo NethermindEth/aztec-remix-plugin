@@ -10,9 +10,10 @@ import { createAccountsRouter } from './routes/accounts.js';
 import { createDeployRouter } from './routes/deploy.js';
 import { createInteractRouter } from './routes/interact.js';
 import { createSettingsRouter } from './routes/settings.js';
-import { createArtifactsRouter } from './routes/artifacts.js';
+import { createArtifactsRouter, autoCleanArtifacts } from './routes/artifacts.js';
 import { createAuthWitRouter } from './routes/authwit.js';
 import { createTransactionsRouter } from './routes/transactions.js';
+import { createRegisterContractRouter } from './routes/register-contract.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -39,6 +40,7 @@ app.use('/settings', createSettingsRouter(aztecService));
 app.use('/artifacts', createArtifactsRouter());
 app.use('/authwit', createAuthWitRouter(aztecService));
 app.use('/transactions', createTransactionsRouter(aztecService));
+app.use('/register-contract', createRegisterContractRouter(aztecService));
 
 // Create HTTP server and attach WebSocket
 const server = http.createServer(app);
@@ -101,7 +103,17 @@ wss.on('connection', (ws: WebSocket) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Aztec Remix API server running on http://localhost:${PORT}`);
   console.log(`WebSocket compile endpoint: ws://localhost:${PORT}/ws/compile`);
+
+  // Auto-cleanup old artifacts on startup (>7 days or >500MB total)
+  try {
+    const deleted = await autoCleanArtifacts();
+    if (deleted > 0) {
+      console.log(`Auto-cleanup: removed ${deleted} old artifact(s)`);
+    }
+  } catch {
+    // Non-critical
+  }
 });

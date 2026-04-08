@@ -163,15 +163,33 @@ export default function InteractTab({ contracts, accounts, artifacts, onContract
   const [atAddress, setAtAddress] = useState('');
   const [atArtifactIdx, setAtArtifactIdx] = useState(0);
 
-  function handleAtAddress() {
+  const [atLoading, setAtLoading] = useState(false);
+  const [atError, setAtError] = useState('');
+
+  async function handleAtAddress() {
     if (!atAddress || artifacts.length === 0) return;
     const artifact = artifacts[atArtifactIdx];
+    setAtLoading(true);
+    setAtError('');
+
+    // Register in the wallet so aztec-wallet knows about this contract
+    try {
+      await api.registerContract({
+        address: atAddress,
+        artifact,
+        alias: artifact.name.toLowerCase(),
+      });
+    } catch {
+      // Registration may fail if already registered — that's OK
+    }
+
     onContractAdded({
       name: artifact.name,
       address: atAddress,
       artifact,
     });
     setAtAddress('');
+    setAtLoading(false);
   }
 
   if (contracts.length === 0) {
