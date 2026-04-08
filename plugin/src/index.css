@@ -1,25 +1,26 @@
 /*
- * Aztec Remix Plugin — Developer Tool Theme
+ * Aztec Remix Plugin
  *
- * Designed to blend into Remix IDE's native dark UI.
- * Neutral grays, monospace-forward, minimal decoration.
- * Matches the aesthetic of VS Code panels / Foundry output.
+ * Supports both Remix dark and light themes via [data-theme] attribute.
+ * Falls back to dark if no theme is set.
+ * Uses Remix-compatible styling — no external Bootstrap loaded.
  */
 
-:root {
+/* ── Dark theme (default) ── */
+:root,
+[data-theme="dark"] {
   --bg-0: #1e1e1e;
   --bg-1: #252526;
   --bg-2: #2d2d2d;
   --bg-3: #333333;
   --bg-input: #3c3c3c;
   --bg-hover: #383838;
-
   --text-0: #cccccc;
   --text-1: #999999;
   --text-2: #6a6a6a;
-
   --accent: #569cd6;
   --accent-dim: rgba(86, 156, 214, 0.15);
+  --accent-hover: #4a8abf;
   --green: #6a9955;
   --green-dim: rgba(106, 153, 85, 0.15);
   --red: #d16969;
@@ -27,9 +28,37 @@
   --yellow: #d7ba7d;
   --yellow-dim: rgba(215, 186, 125, 0.12);
   --orange: #ce9178;
-
   --border: #3e3e3e;
   --border-light: #4a4a4a;
+}
+
+/* ── Light theme ── */
+[data-theme="light"] {
+  --bg-0: #ffffff;
+  --bg-1: #f3f3f3;
+  --bg-2: #e8e8e8;
+  --bg-3: #dcdcdc;
+  --bg-input: #ffffff;
+  --bg-hover: #e5e5e5;
+  --text-0: #1e1e1e;
+  --text-1: #555555;
+  --text-2: #888888;
+  --accent: #0066b8;
+  --accent-dim: rgba(0, 102, 184, 0.1);
+  --accent-hover: #005a9e;
+  --green: #388a34;
+  --green-dim: rgba(56, 138, 52, 0.1);
+  --red: #c72e2e;
+  --red-dim: rgba(199, 46, 46, 0.08);
+  --yellow: #9d6f21;
+  --yellow-dim: rgba(157, 111, 33, 0.08);
+  --orange: #a15e2f;
+  --border: #d4d4d4;
+  --border-light: #c0c0c0;
+}
+
+/* ── Shared values ── */
+:root {
   --radius: 3px;
   --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Menlo', monospace;
 }
@@ -238,7 +267,7 @@ label {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #4a8abf;
+  background: var(--accent-hover);
 }
 
 .btn-secondary {
@@ -389,7 +418,7 @@ code {
 }
 
 .fn-badge.private {
-  background: rgba(209, 105, 105, 0.18);
+  background: var(--red-dim);
   color: var(--red);
 }
 

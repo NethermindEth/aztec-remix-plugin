@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import remixClient from '../remix-client';
 import * as api from '../api';
 import { ApiError } from '../api';
@@ -59,6 +59,7 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
   const [compileErrors, setCompileErrors] = useState<CompileError[]>([]);
   const [currentFile, setCurrentFile] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
+  const [fileChanged, setFileChanged] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll logs
@@ -67,6 +68,19 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [logs]);
+
+  // Listen for .nr file saves — show recompile prompt
+  const handleFileSaved = useCallback((path: string) => {
+    if (!loading) {
+      setFileChanged(true);
+      setCurrentFile(path);
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    remixClient.onNrFileSaved(handleFileSaved);
+    return () => remixClient.offNrFileSaved(handleFileSaved);
+  }, [handleFileSaved]);
 
   async function detectCurrentFile() {
     try {
@@ -284,6 +298,7 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
         return;
       }
 
+      remixClient.emitStatus('loading', 'info', 'Compiling...');
       await remixClient.logToTerminal(`Compiling ${filePath}...`);
       setLogs(['Compiling ' + filePath + '...']);
 
@@ -322,6 +337,7 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
       setSuccess(`Compiled successfully: ${artifactNames.join(', ')}`);
       setLogs((prev) => [...prev, `Compilation complete: ${artifactNames.join(', ')}`]);
       onCompiled(resultArtifacts);
+      remixClient.emitStatus('succeed', 'success', `Compiled: ${artifactNames.join(', ')}`);
 
       await remixClient.logToTerminal(
         `Compilation successful. Artifacts: ${artifactNames.join(', ')}`,
@@ -330,6 +346,7 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
       const msg = err instanceof Error ? err.message : 'Compilation failed';
       setError(msg);
       setLogs((prev) => [...prev, `ERROR: ${msg}`]);
+      remixClient.emitStatus('failed', 'error', 'Compilation failed');
 
       if (err instanceof ApiError && err.errors) {
         setCompileErrors(err.errors);
@@ -413,6 +430,16 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
           {scaffolding ? <><span className="spinner" /> Creating...</> : 'New Aztec Project'}
         </button>
 
+        {fileChanged && (
+          <div className="warning-msg" style={{ marginBottom: 8 }}>
+            File changed. <button
+              className="btn btn-primary btn-small"
+              onClick={() => { setFileChanged(false); handleCompile(); }}
+              style={{ marginLeft: 4 }}
+            >Recompile</button>
+          </div>
+        )}
+
         {currentFile && (
           <div className="form-group">
             <label>Current File</label>
@@ -422,7 +449,7 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
 
         <button
           className="btn btn-primary btn-full"
-          onClick={handleCompile}
+          onClick={() => { setFileChanged(false); handleCompile(); }}
           disabled={loading}
         >
           {loading ? (
