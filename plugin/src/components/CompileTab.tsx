@@ -342,16 +342,53 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
     }
   }
 
+  /** Remove default Remix Solidity files to give a clean Aztec workspace */
+  async function cleanDefaultFiles() {
+    const defaultPaths = [
+      'contracts',
+      'scripts',
+      'tests',
+      '.prettierrc.json',
+      'README.txt',
+    ];
+    for (const p of defaultPaths) {
+      try {
+        // Try to detect if it's a directory by reading it
+        const entries = await remixClient.readDir(p);
+        // It's a directory — delete each file inside, then the dir is empty
+        for (const [name] of Object.entries(entries)) {
+          try {
+            // Recursively try subdirs
+            const subEntries = await remixClient.readDir(`${p}/${name}`);
+            for (const [subName] of Object.entries(subEntries)) {
+              try { await remixClient.call('fileManager', 'remove' as any, `${p}/${name}/${subName}`); } catch { /* */ }
+            }
+            try { await remixClient.call('fileManager', 'remove' as any, `${p}/${name}`); } catch { /* */ }
+          } catch {
+            // It's a file, not a subdir
+            try { await remixClient.call('fileManager', 'remove' as any, `${p}/${name}`); } catch { /* */ }
+          }
+        }
+      } catch {
+        // Not a directory — try as a file
+        try { await remixClient.call('fileManager', 'remove' as any, p); } catch { /* */ }
+      }
+    }
+  }
+
   async function handleNewProject() {
     setScaffolding(true);
     setError('');
     try {
+      // Clean default Solidity files for a fresh Aztec workspace
+      await cleanDefaultFiles();
+
       await remixClient.writeFile('aztec-project/Nargo.toml', STARTER_NARGO_TOML);
       await remixClient.writeFile('aztec-project/src/main.nr', STARTER_CONTRACT);
       // Open the file in the editor
       await remixClient.call('fileManager', 'switchFile', 'aztec-project/src/main.nr');
-      setSuccess('Project created at aztec-project/. Open src/main.nr and click Compile.');
-      await remixClient.logToTerminal('Created new Aztec project at aztec-project/');
+      setSuccess('Project created. Default Solidity files cleaned.');
+      await remixClient.logToTerminal('Created clean Aztec workspace at aztec-project/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create project');
     } finally {
