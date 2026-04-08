@@ -70,9 +70,8 @@ export default function Header({ networkInfo, accounts, onConnect, onAccountsLoa
     setError('');
     try {
       // Use first available account as fee payer (new accounts can't pay for themselves)
-      const feePayer = accounts[0]?.alias
-        ? `accounts:${accounts[0].alias}`
-        : accounts[0]?.address;
+      const acct = accounts[0];
+      const feePayer = acct?.alias ? `accounts:${acct.alias}` : acct?.address;
       await api.createAccount(newAlias.trim(), feePayer);
       // Refresh account list
       const updatedAccounts = await api.getAccounts();

@@ -143,12 +143,19 @@ export class AztecService {
       const { stdout } = await this.wallet(['get-alias', 'accounts']);
       const accounts: AccountInfo[] = [];
 
+      // Output format: "accounts:alias -> 0xaddress"
       for (const line of stdout.split('\n')) {
         const match = line.match(/^\s*(\S+)\s*->\s*(0x[0-9a-fA-F]+)/);
         if (match) {
+          // Strip the "accounts:" prefix from the alias so downstream code
+          // can add it back consistently via getAccountRef()
+          const rawAlias = match[1];
+          const alias = rawAlias.startsWith('accounts:')
+            ? rawAlias.slice('accounts:'.length)
+            : rawAlias;
           accounts.push({
             address: match[2],
-            alias: match[1],
+            alias,
           });
         }
       }
