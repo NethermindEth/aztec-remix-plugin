@@ -27,3 +27,7 @@ target/
 
 # Info folder
 info/
+
+# Claude / Agents
+.claude/
+.agents/
