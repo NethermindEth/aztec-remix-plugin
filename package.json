@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "workspaces": ["plugin", "api"],
+  "scripts": {
+    "dev": "npm run dev --workspace=api & npm run dev --workspace=plugin",
+    "dev:api": "npm run dev --workspace=api",
+    "dev:plugin": "npm run dev --workspace=plugin",
+    "build": "npm run build --workspace=plugin",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
