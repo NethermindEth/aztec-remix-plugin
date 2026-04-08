@@ -119,8 +119,8 @@ export function createArtifactsRouter() {
   router.post('/cleanup', async (req, res) => {
     try {
       const { maxAgeDays, maxSizeMb } = req.body as { maxAgeDays?: number; maxSizeMb?: number };
-      const maxAgeMs = maxAgeDays ? maxAgeDays * 24 * 60 * 60 * 1000 : DEFAULT_MAX_AGE_MS;
-      const maxSizeBytes = maxSizeMb ? maxSizeMb * 1024 * 1024 : DEFAULT_MAX_SIZE_BYTES;
+      const maxAgeMs = maxAgeDays != null ? maxAgeDays * 24 * 60 * 60 * 1000 : DEFAULT_MAX_AGE_MS;
+      const maxSizeBytes = maxSizeMb != null ? maxSizeMb * 1024 * 1024 : DEFAULT_MAX_SIZE_BYTES;
 
       const deleted = await autoCleanArtifacts(maxAgeMs, maxSizeBytes);
       res.json({
