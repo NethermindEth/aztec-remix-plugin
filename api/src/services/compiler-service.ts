@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { CompileResult, CompileError } from '../types.js';
+import { safePath } from './path-utils.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -86,9 +87,9 @@ export class CompilerService {
     );
 
     try {
-      // Write all source files first
+      // Write all source files (with path traversal protection)
       for (const [filePath, content] of Object.entries(sources)) {
-        const fullPath = path.join(tmpDir, filePath);
+        const fullPath = safePath(tmpDir, filePath);
         await fs.mkdir(path.dirname(fullPath), { recursive: true });
         await fs.writeFile(fullPath, content);
       }

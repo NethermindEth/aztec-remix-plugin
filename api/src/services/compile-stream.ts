@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { safePath } from './path-utils.js';
 
 const DEFAULT_NARGO_TOML = (name: string) => `[package]
 name = "${name}"
@@ -37,9 +38,9 @@ export async function compileWithStream(
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'aztec-compile-'));
 
   try {
-    // Write source files
+    // Write source files (with path traversal protection)
     for (const [filePath, content] of Object.entries(sources)) {
-      const fullPath = path.join(tmpDir, filePath);
+      const fullPath = safePath(tmpDir, filePath);
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       await fs.writeFile(fullPath, content);
     }
