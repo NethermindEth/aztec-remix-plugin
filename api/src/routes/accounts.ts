@@ -27,8 +27,8 @@ export function createAccountsRouter(aztecService: AztecService) {
 
   router.post('/create', async (req, res) => {
     try {
-      const { alias } = req.body as { alias?: string };
-      const account = await aztecService.createAccount(alias);
+      const { alias, from } = req.body as { alias?: string; from?: string };
+      const account = await aztecService.createAccount(alias, from);
       res.json({ success: true, data: account } satisfies ApiResponse<AccountInfo>);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create account';

@@ -4,11 +4,12 @@ import type { NetworkInfo, AccountInfo } from '../types';
 
 interface HeaderProps {
   networkInfo: NetworkInfo | null;
+  accounts: AccountInfo[];
   onConnect: (info: NetworkInfo) => void;
   onAccountsLoaded: (accounts: AccountInfo[]) => void;
 }
 
-export default function Header({ networkInfo, onConnect, onAccountsLoaded }: HeaderProps) {
+export default function Header({ networkInfo, accounts, onConnect, onAccountsLoaded }: HeaderProps) {
   const [nodeUrl, setNodeUrl] = useState('http://localhost:8080');
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -68,10 +69,14 @@ export default function Header({ networkInfo, onConnect, onAccountsLoaded }: Hea
     setCreating(true);
     setError('');
     try {
-      await api.createAccount(newAlias.trim());
+      // Use first available account as fee payer (new accounts can't pay for themselves)
+      const feePayer = accounts[0]?.alias
+        ? `accounts:${accounts[0].alias}`
+        : accounts[0]?.address;
+      await api.createAccount(newAlias.trim(), feePayer);
       // Refresh account list
-      const accounts = await api.getAccounts();
-      onAccountsLoaded(accounts);
+      const updatedAccounts = await api.getAccounts();
+      onAccountsLoaded(updatedAccounts);
       setNewAlias('');
       setShowCreate(false);
     } catch (err) {

@@ -77,7 +77,14 @@ export function createArtifactsRouter() {
         res.status(400).json({ success: false, error: 'Invalid artifact name' } satisfies ApiResponse);
         return;
       }
-      await fs.unlink(path.join(ARTIFACT_DIR, name));
+      const filePath = path.join(ARTIFACT_DIR, name);
+      try {
+        await fs.access(filePath);
+      } catch {
+        res.status(404).json({ success: false, error: 'Artifact not found' } satisfies ApiResponse);
+        return;
+      }
+      await fs.unlink(filePath);
       res.json({ success: true } satisfies ApiResponse);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete artifact';

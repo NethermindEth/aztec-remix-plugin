@@ -116,6 +116,7 @@ export default function App() {
     <div className="plugin-container">
       <Header
         networkInfo={networkInfo}
+        accounts={accounts}
         onConnect={handleConnect}
         onAccountsLoaded={setAccounts}
       />

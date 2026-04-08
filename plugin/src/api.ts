@@ -74,10 +74,10 @@ export function importTestAccounts(): Promise<AccountInfo[]> {
   return request('/accounts/import-test', { method: 'POST' });
 }
 
-export function createAccount(alias?: string): Promise<AccountInfo> {
+export function createAccount(alias?: string, from?: string): Promise<AccountInfo> {
   return request('/accounts/create', {
     method: 'POST',
-    body: JSON.stringify({ alias }),
+    body: JSON.stringify({ alias, from }),
   });
 }
 

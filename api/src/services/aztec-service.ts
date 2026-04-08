@@ -136,12 +136,15 @@ export class AztecService {
     return this.getAccounts();
   }
 
-  async createAccount(alias?: string): Promise<AccountInfo> {
+  async createAccount(alias?: string, feePayer?: string): Promise<AccountInfo> {
     this.ensureConnected();
 
     const cliArgs = ['create-account'];
     if (alias) {
       cliArgs.push('-a', alias);
+    }
+    if (feePayer) {
+      cliArgs.push('-f', feePayer);
     }
 
     const { stdout } = await this.wallet(cliArgs);
