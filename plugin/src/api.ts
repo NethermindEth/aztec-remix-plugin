@@ -1,11 +1,20 @@
 import type {
   ApiResponse,
   CompileResult,
+  CompileError,
   NetworkInfo,
   AccountInfo,
 } from './types';
 
 const API_BASE = 'http://localhost:3001';
+
+class ApiError extends Error {
+  errors?: CompileError[];
+  constructor(message: string, errors?: CompileError[]) {
+    super(message);
+    this.errors = errors;
+  }
+}
 
 async function request<T>(
   path: string,
@@ -19,7 +28,12 @@ async function request<T>(
   const data: ApiResponse<T> = await res.json();
 
   if (!data.success) {
-    throw new Error(data.error || 'Request failed');
+    // Check if the error response carries structured compile errors
+    const errorData = data.data as { errors?: CompileError[] } | undefined;
+    throw new ApiError(
+      data.error || 'Request failed',
+      errorData?.errors,
+    );
   }
 
   return data.data as T;
@@ -88,3 +102,5 @@ export function interact(
     body: JSON.stringify({ contractAddress, functionName, args, action, from }),
   });
 }
+
+export { ApiError };

@@ -11,9 +11,18 @@ export interface AccountInfo {
   alias?: string;
 }
 
+export interface CompileError {
+  message: string;
+  file?: string;
+  line?: number;
+  column?: number;
+  type: 'error' | 'warning';
+}
+
 export interface CompileResult {
   artifacts: ContractArtifact[];
   warnings?: string[];
+  errors?: CompileError[];
 }
 
 export interface ContractArtifact {

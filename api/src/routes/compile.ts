@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { CompilerService } from '../services/compiler-service.js';
-import type { CompileRequest, ApiResponse, CompileResult } from '../types.js';
+import type { CompileRequest, ApiResponse, CompileResult, CompileError } from '../types.js';
 
 const router = Router();
 const compilerService = new CompilerService();
@@ -23,11 +23,14 @@ router.post('/', async (req, res) => {
       success: true,
       data: result,
     } satisfies ApiResponse<CompileResult>);
-  } catch (err) {
+  } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Compilation failed';
+    // Pass through structured errors if available
+    const errors = (err as { errors?: CompileError[] }).errors;
     res.status(500).json({
       success: false,
       error: message,
+      data: errors ? { errors } : undefined,
     } satisfies ApiResponse);
   }
 });

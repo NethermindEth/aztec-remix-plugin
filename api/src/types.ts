@@ -32,9 +32,18 @@ export interface ApiResponse<T = unknown> {
   error?: string;
 }
 
+export interface CompileError {
+  message: string;
+  file?: string;
+  line?: number;
+  column?: number;
+  type: 'error' | 'warning';
+}
+
 export interface CompileResult {
   artifacts: object[];
   warnings?: string[];
+  errors?: CompileError[];
 }
 
 export interface NetworkInfo {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import remixClient from './remix-client';
 import Header from './components/Header';
 import CompileTab from './components/CompileTab';
@@ -8,6 +8,8 @@ import type { NetworkInfo, AccountInfo, ContractArtifact, DeployedContract } fro
 
 type Tab = 'compile' | 'deploy' | 'interact';
 
+const DEPLOYED_CONTRACTS_PATH = '.aztec/deployed-contracts.json';
+
 export default function App() {
   const [ready, setReady] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('compile');
@@ -16,11 +18,55 @@ export default function App() {
   const [artifacts, setArtifacts] = useState<ContractArtifact[]>([]);
   const [deployedContracts, setDeployedContracts] = useState<DeployedContract[]>([]);
 
-  // Wait for Remix plugin client to connect
+  // Wait for Remix plugin client to connect, then load persisted state
   useEffect(() => {
-    remixClient.onload(() => {
+    remixClient.onload(async () => {
       setReady(true);
+      // Load persisted deployed contracts
+      try {
+        const raw = await remixClient.readFile(DEPLOYED_CONTRACTS_PATH);
+        const contracts = JSON.parse(raw) as DeployedContract[];
+        if (Array.isArray(contracts)) {
+          setDeployedContracts(contracts);
+        }
+      } catch {
+        // No persisted contracts yet — that's fine
+      }
+      // Load persisted artifacts from artifacts/ directory
+      try {
+        const entries = await remixClient.readDir('artifacts');
+        for (const [name, info] of Object.entries(entries)) {
+          if (!info.isDirectory && name.endsWith('.json')) {
+            try {
+              const content = await remixClient.readFile(`artifacts/${name}`);
+              const artifact = JSON.parse(content) as ContractArtifact;
+              if (artifact.name && artifact.functions) {
+                setArtifacts((prev) => {
+                  if (prev.some((a) => a.name === artifact.name)) return prev;
+                  return [...prev, artifact];
+                });
+              }
+            } catch {
+              // Skip malformed artifacts
+            }
+          }
+        }
+      } catch {
+        // No artifacts/ directory yet
+      }
     });
+  }, []);
+
+  // Persist deployed contracts whenever the list changes
+  const persistContracts = useCallback(async (contracts: DeployedContract[]) => {
+    try {
+      await remixClient.writeFile(
+        DEPLOYED_CONTRACTS_PATH,
+        JSON.stringify(contracts, null, 2),
+      );
+    } catch {
+      // Silently fail — persistence is best-effort
+    }
   }, []);
 
   function handleConnect(info: NetworkInfo) {
@@ -29,7 +75,6 @@ export default function App() {
 
   function handleCompiled(newArtifacts: ContractArtifact[]) {
     setArtifacts((prev) => {
-      // Replace artifacts with same name, add new ones
       const map = new Map(prev.map((a) => [a.name, a]));
       for (const a of newArtifacts) {
         map.set(a.name, a);
@@ -40,8 +85,20 @@ export default function App() {
   }
 
   function handleDeployed(contract: DeployedContract) {
-    setDeployedContracts((prev) => [...prev, contract]);
+    setDeployedContracts((prev) => {
+      const next = [...prev, contract];
+      persistContracts(next);
+      return next;
+    });
     setActiveTab('interact');
+  }
+
+  function handleContractAdded(contract: DeployedContract) {
+    setDeployedContracts((prev) => {
+      const next = [...prev, contract];
+      persistContracts(next);
+      return next;
+    });
   }
 
   if (!ready) {
@@ -100,9 +157,7 @@ export default function App() {
             contracts={deployedContracts}
             accounts={accounts}
             artifacts={artifacts}
-            onContractAdded={(contract) =>
-              setDeployedContracts((prev) => [...prev, contract])
-            }
+            onContractAdded={handleContractAdded}
           />
         )}
       </div>

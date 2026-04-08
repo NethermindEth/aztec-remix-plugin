@@ -3,7 +3,7 @@ import { promisify } from 'node:util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { CompileResult } from '../types.js';
+import { CompileResult, CompileError } from '../types.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -19,6 +19,55 @@ function getAztecBinaryPath(): string {
   if (process.env.AZTEC_PATH) return process.env.AZTEC_PATH;
   const home = os.homedir();
   return path.join(home, '.aztec', 'current', 'node_modules', '.bin', 'aztec');
+}
+
+/**
+ * Parse compile errors from nargo/aztec stderr output.
+ *
+ * Nargo error format:
+ *   error: <message>
+ *      ┌─ src/main.nr:18:9
+ *      │
+ *   18 │     storage.count.write(0);
+ *      │             -----
+ *
+ * Also handles:
+ *   error[E0001]: <message>
+ *      ┌─ src/main.nr:5:1
+ */
+function parseCompileErrors(stderr: string): CompileError[] {
+  const errors: CompileError[] = [];
+  const lines = stderr.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Match "error: ..." or "error[E0001]: ..." or "warning: ..."
+    const msgMatch = line.match(/^\s*(error(?:\[[^\]]+\])?|warning):\s*(.+)/i);
+    if (!msgMatch) continue;
+
+    const type = msgMatch[1].toLowerCase().startsWith('error') ? 'error' as const : 'warning' as const;
+    const message = msgMatch[2].trim();
+
+    // Look ahead for file location: "┌─ src/main.nr:18:9"
+    let file: string | undefined;
+    let errorLine: number | undefined;
+    let column: number | undefined;
+
+    for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+      const locMatch = lines[j].match(/[┌─]+\s+([^:]+):(\d+):(\d+)/);
+      if (locMatch) {
+        file = locMatch[1].trim();
+        errorLine = parseInt(locMatch[2], 10);
+        column = parseInt(locMatch[3], 10);
+        break;
+      }
+    }
+
+    errors.push({ message, file, line: errorLine, column, type });
+  }
+
+  return errors;
 }
 
 export class CompilerService {
@@ -49,9 +98,7 @@ export class CompilerService {
       const nargoPath = path.join(tmpDir, 'Nargo.toml');
       try {
         await fs.access(nargoPath);
-        // Nargo.toml exists from user sources — use it
       } catch {
-        // No Nargo.toml provided — generate default
         await fs.writeFile(nargoPath, DEFAULT_NARGO_TOML(contractName.toLowerCase()));
       }
 
@@ -60,31 +107,64 @@ export class CompilerService {
       try {
         await fs.access(mainNr);
       } catch {
-        // If no src/main.nr but we have other .nr files, find the most likely entry
         const srcDir = path.join(tmpDir, 'src');
         try {
           const files = await fs.readdir(srcDir);
           const nrFiles = files.filter((f) => f.endsWith('.nr'));
           if (nrFiles.length === 1 && nrFiles[0] !== 'main.nr') {
-            // Single .nr file that isn't main.nr — copy it as main.nr
             const content = await fs.readFile(path.join(srcDir, nrFiles[0]), 'utf-8');
             await fs.writeFile(mainNr, content);
           }
         } catch {
-          // No src/ dir at all — sources may use a flat structure
+          // No src/ dir at all
         }
       }
 
       // Run aztec compile from the project directory
-      const { stdout, stderr } = await execFileAsync(
-        this.aztecBin,
-        ['compile'],
-        {
-          timeout: 300_000, // 5 min timeout (first compile downloads deps)
-          cwd: tmpDir,
-          env: { ...process.env },
-        },
-      );
+      let stdout = '';
+      let stderr = '';
+      try {
+        const result = await execFileAsync(
+          this.aztecBin,
+          ['compile'],
+          {
+            timeout: 300_000,
+            cwd: tmpDir,
+            env: { ...process.env },
+            maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
+          },
+        );
+        stdout = result.stdout;
+        stderr = result.stderr;
+      } catch (err: unknown) {
+        // execFile throws on non-zero exit — capture stdout/stderr from the error
+        const execErr = err as { stdout?: string; stderr?: string; message?: string };
+        stdout = execErr.stdout || '';
+        stderr = execErr.stderr || '';
+
+        // Parse structured errors from stderr
+        const errors = parseCompileErrors(stderr);
+        if (errors.length > 0) {
+          // Return a structured error response with parsed locations
+          const errorMessages = errors
+            .filter((e) => e.type === 'error')
+            .map((e) => {
+              const loc = e.line ? ` (${e.file || 'unknown'}:${e.line}:${e.column || 0})` : '';
+              return `${e.message}${loc}`;
+            });
+
+          const error = new Error(
+            `Compilation failed:\n${errorMessages.join('\n')}`,
+          ) as Error & { errors: CompileError[] };
+          error.errors = errors;
+          throw error;
+        }
+
+        // No structured errors — throw raw message
+        throw new Error(
+          `Compilation failed:\n${stderr || execErr.message || 'Unknown error'}`,
+        );
+      }
 
       // Collect warnings from stderr (filter out progress noise)
       const warnings = stderr
@@ -93,6 +173,9 @@ export class CompilerService {
             .filter((l) => l.trim().length > 0)
             .filter((l) => !l.includes('Compiling') && !l.includes('Finished'))
         : [];
+
+      // Parse any warnings with locations
+      const parsedErrors = parseCompileErrors(stderr);
 
       // Read artifacts from target/
       const targetDir = path.join(tmpDir, 'target');
@@ -121,7 +204,11 @@ export class CompilerService {
         );
       }
 
-      return { artifacts, warnings };
+      return {
+        artifacts,
+        warnings,
+        errors: parsedErrors.length > 0 ? parsedErrors : undefined,
+      };
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     }
