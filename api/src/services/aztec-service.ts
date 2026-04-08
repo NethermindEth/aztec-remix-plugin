@@ -110,26 +110,19 @@ export class AztecService {
       // Non-critical
     }
 
-    // Detect if this is a different network instance than last time.
-    // protocolVersion changes on each fresh `aztec start --local-network`.
+    // Detect if wallet has pre-existing data that might be stale.
+    // On local dev, the network restarts frequently — old accounts won't work.
     const protocolVersion = nodeInfo.protocolVersion as number | undefined;
     let staleWalletData = false;
-    if (this.lastProtocolVersion !== undefined && protocolVersion !== this.lastProtocolVersion) {
-      staleWalletData = true;
+    try {
+      const accounts = await this.getAccounts();
+      if (accounts.length > 0) {
+        staleWalletData = true;
+      }
+    } catch {
+      // No accounts — wallet is clean
     }
     this.lastProtocolVersion = protocolVersion;
-
-    // Also check if wallet has accounts but network is very early (fresh start)
-    if (blockNumber !== undefined && blockNumber <= 5) {
-      try {
-        const accounts = await this.getAccounts();
-        if (accounts.length > 0) {
-          staleWalletData = true;
-        }
-      } catch {
-        // Ignore
-      }
-    }
 
     return {
       connected: true,

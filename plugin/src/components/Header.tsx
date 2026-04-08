@@ -51,13 +51,16 @@ export default function Header({ networkInfo, accounts, onConnect, onAccountsLoa
       // Check if the backend detected stale wallet data
       if (info.staleWalletData) {
         setStaleWarning(true);
-      }
-
-      try {
-        const accts = await api.getAccounts();
-        onAccountsLoaded(accts);
-      } catch {
-        // No accounts yet
+        // Don't load stale accounts — user must clear wallet data first
+        onAccountsLoaded([]);
+      } else {
+        // Only auto-load accounts if wallet data is fresh
+        try {
+          const accts = await api.getAccounts();
+          onAccountsLoaded(accts);
+        } catch {
+          onAccountsLoaded([]);
+        }
       }
 
       try {
@@ -77,6 +80,9 @@ export default function Header({ networkInfo, accounts, onConnect, onAccountsLoa
     setImporting(true);
     setError('');
     try {
+      // Clear stale wallet data first, then import fresh test accounts
+      await api.clearWalletData();
+      setStaleWarning(false);
       const accounts = await api.importTestAccounts();
       onAccountsLoaded(accounts);
     } catch (err) {
