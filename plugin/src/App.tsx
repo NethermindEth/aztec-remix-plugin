@@ -134,6 +134,7 @@ export default function App() {
           <DeployTab
             artifacts={artifacts}
             accounts={accounts}
+            deployedContracts={deployedContracts}
             onDeployed={handleDeployed}
           />
         )}

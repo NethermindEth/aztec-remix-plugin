@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import * as api from '../api';
 import AccountSelector from './AccountSelector';
+import { getAccountRef, buildArgs } from '../utils';
 import type { DeployedContract, AccountInfo, AbiFunction, ContractArtifact } from '../types';
 
 interface InteractTabProps {
@@ -45,36 +46,20 @@ function FunctionCard({
   const fnType = getFunctionType(fn);
   const isReadOnly = fnType === 'utility';
 
-  // Use account alias for aztec-wallet CLI
-  function getAccountRef(address: string): string {
-    const acct = accounts.find((a) => a.address === address);
-    if (acct?.alias) return `accounts:${acct.alias}`;
-    return address;
-  }
-
   async function handleExecute(action: 'send' | 'simulate') {
     setLoading(true);
     setError('');
     setResult(null);
 
     try {
-      const argValues = fn.parameters.map((p) => {
-        const val = args[p.name] || '';
-        if (p.type.kind === 'integer' || p.type.kind === 'field') {
-          return val || '0';
-        }
-        if (p.type.kind === 'boolean') {
-          return val === 'true';
-        }
-        return val;
-      });
+      const argValues = buildArgs(fn.parameters, args);
 
       const res = await api.interact(
         contractAddress,
         fn.name,
         argValues,
         action,
-        getAccountRef(selectedAccount),
+        getAccountRef(selectedAccount, accounts),
       );
 
       const display = res.txHash

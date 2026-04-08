@@ -128,13 +128,36 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
     }
   }
 
+  const WS_UNAVAILABLE = Symbol('ws_unavailable');
+  const MAX_LOG_LINES = 500;
+
+  function appendLog(line: string) {
+    setLogs((prev) => {
+      const next = [...prev, line];
+      return next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next;
+    });
+  }
+
   /** Compile via WebSocket for real-time log streaming */
   function compileViaWs(
     sources: Record<string, string>,
     contractName: string,
   ): Promise<ContractArtifact[]> {
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const settle = (fn: () => void) => { if (!settled) { settled = true; fn(); } };
+
       const ws = new WebSocket(WS_URL);
+
+      // Client-side timeout: 5 minutes
+      const timeout = setTimeout(() => {
+        settle(() => {
+          ws.close();
+          reject(new Error('Compilation timed out after 5 minutes'));
+        });
+      }, 300_000);
+
+      const cleanup = () => clearTimeout(timeout);
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ sources, contractName }));
@@ -149,29 +172,33 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
 
           switch (msg.type) {
             case 'stdout':
-              setLogs((prev) => [...prev, msg.data as string]);
+              appendLog(msg.data as string);
               break;
             case 'stderr':
-              setLogs((prev) => [...prev, msg.data as string]);
+              appendLog(msg.data as string);
               break;
             case 'status':
-              setLogs((prev) => [...prev, `[status] ${msg.data}`]);
+              appendLog(`[status] ${msg.data}`);
               break;
             case 'complete': {
+              cleanup();
               const result = msg.data as {
                 success: boolean;
                 artifacts: ContractArtifact[];
                 exitCode: number;
               };
-              if (result.success && result.artifacts.length > 0) {
-                resolve(result.artifacts);
-              } else {
-                reject(new Error('Compilation failed (exit code ' + result.exitCode + ')'));
-              }
+              settle(() => {
+                if (result.success && result.artifacts.length > 0) {
+                  resolve(result.artifacts);
+                } else {
+                  reject(new Error('Compilation failed (exit code ' + result.exitCode + ')'));
+                }
+              });
               break;
             }
             case 'error':
-              reject(new Error(msg.data as string));
+              cleanup();
+              settle(() => reject(new Error(msg.data as string)));
               break;
           }
         } catch {
@@ -180,12 +207,19 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
       };
 
       ws.onerror = () => {
-        // WebSocket failed — will fall back to REST
-        reject(new Error('__ws_unavailable__'));
+        cleanup();
+        // Use a symbol to distinguish WS unavailable from real errors
+        settle(() => {
+          const err = new Error('WebSocket unavailable');
+          (err as any)[WS_UNAVAILABLE] = true;
+          reject(err);
+        });
       };
 
       ws.onclose = () => {
-        // If promise hasn't resolved/rejected yet, it will timeout naturally
+        cleanup();
+        // If connection closed without complete/error, reject
+        settle(() => reject(new Error('WebSocket closed unexpectedly')));
       };
     });
   }
@@ -220,9 +254,9 @@ export default function CompileTab({ onCompiled }: CompileTabProps) {
       try {
         resultArtifacts = await compileViaWs(sources, contractName);
       } catch (wsErr) {
-        if (wsErr instanceof Error && wsErr.message === '__ws_unavailable__') {
+        if (wsErr instanceof Error && (wsErr as any)[WS_UNAVAILABLE]) {
           // WebSocket unavailable — fall back to REST
-          setLogs((prev) => [...prev, '[fallback] Using REST API...']);
+          appendLog('[fallback] Using REST API...');
           const result = await api.compile(sources, contractName);
 
           if (result.errors && result.errors.length > 0) {

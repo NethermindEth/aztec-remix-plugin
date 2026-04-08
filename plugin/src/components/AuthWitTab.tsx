@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import * as api from '../api';
 import AccountSelector from './AccountSelector';
+import { getAccountRef } from '../utils';
 import type { DeployedContract, AccountInfo, AbiFunction } from '../types';
 
 const HIDDEN_FUNCTIONS = new Set([
@@ -40,12 +41,6 @@ export default function AuthWitTab({ contracts, accounts }: AuthWitTabProps) {
 
   const selectedFn = callableFns.find((f) => f.name === selectedFunction);
 
-  function getAccountRef(address: string): string {
-    const acct = accounts.find((a) => a.address === address);
-    if (acct?.alias) return `accounts:${acct.alias}`;
-    return address;
-  }
-
   async function handleSubmit() {
     if (!selectedFunction || !caller || !from) return;
     setLoading(true);
@@ -58,10 +53,10 @@ export default function AuthWitTab({ contracts, accounts }: AuthWitTabProps) {
       if (mode === 'private') {
         const res = await api.createAuthWit({
           functionName: selectedFunction,
-          caller: getAccountRef(caller),
+          caller: getAccountRef(caller, accounts),
           contractAddress: contract.address,
           artifact: contract.artifact,
-          from: getAccountRef(from),
+          from: getAccountRef(from, accounts),
           args: fnArgs.length > 0 ? fnArgs : undefined,
           alias: alias || undefined,
         });
@@ -69,9 +64,9 @@ export default function AuthWitTab({ contracts, accounts }: AuthWitTabProps) {
       } else {
         const res = await api.authorizeAction({
           functionName: selectedFunction,
-          caller: getAccountRef(caller),
+          caller: getAccountRef(caller, accounts),
           contractAddress: contract.address,
-          from: getAccountRef(from),
+          from: getAccountRef(from, accounts),
           args: fnArgs.length > 0 ? fnArgs : undefined,
         });
         setResult(res.output);
