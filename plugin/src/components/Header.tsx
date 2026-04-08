@@ -20,24 +20,46 @@ export default function Header({ networkInfo, accounts, onConnect, onAccountsLoa
   const [cleaning, setCleaning] = useState(false);
   const [error, setError] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
+  const [staleWarning, setStaleWarning] = useState(false);
+  const [clearingWallet, setClearingWallet] = useState(false);
 
   const connected = networkInfo?.connected ?? false;
+
+  async function handleClearAndReimport() {
+    setClearingWallet(true);
+    setError('');
+    try {
+      await api.clearWalletData();
+      onAccountsLoaded([]);
+      setStaleWarning(false);
+      setStatusMsg('Wallet data cleared. Import test accounts to continue.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear wallet data');
+    } finally {
+      setClearingWallet(false);
+    }
+  }
 
   async function handleConnect() {
     setLoading(true);
     setError('');
+    setStaleWarning(false);
     try {
-      const info = await api.connect(nodeUrl);
+      const info = await api.connect(nodeUrl) as any;
       onConnect(info);
 
+      // Check if the backend detected stale wallet data
+      if (info.staleWalletData) {
+        setStaleWarning(true);
+      }
+
       try {
-        const accounts = await api.getAccounts();
-        onAccountsLoaded(accounts);
+        const accts = await api.getAccounts();
+        onAccountsLoaded(accts);
       } catch {
         // No accounts yet
       }
 
-      // Fetch current prover mode
       try {
         const { mode } = await api.getProverMode();
         setProverMode(mode);
@@ -137,6 +159,21 @@ export default function Header({ networkInfo, accounts, onConnect, onAccountsLoa
           {loading ? <span className="spinner" /> : connected ? 'Reconnect' : 'Connect'}
         </button>
       </div>
+
+      {staleWarning && (
+        <div className="warning-msg" style={{ marginTop: 6 }}>
+          <strong>Stale wallet data detected.</strong> Your local network may have restarted. Old accounts won't work.
+          <div style={{ marginTop: 4 }}>
+            <button
+              className="btn btn-primary btn-small"
+              onClick={handleClearAndReimport}
+              disabled={clearingWallet}
+            >
+              {clearingWallet ? <><span className="spinner" /> Clearing...</> : 'Clear Wallet Data'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {connected && (
         <>

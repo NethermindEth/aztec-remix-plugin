@@ -3,7 +3,7 @@ import { promisify } from 'node:util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { NetworkInfo, AccountInfo } from '../types.js';
-import { getWalletBinaryPath, SETTINGS_PATH } from '../config.js';
+import { getWalletBinaryPath, SETTINGS_PATH, WALLET_PXE_DATA_DIR } from '../config.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -18,6 +18,7 @@ export class AztecService {
   private connected: boolean = false;
   private walletBin: string;
   private proverMode: ProverMode = 'none';
+  private lastProtocolVersion: number | undefined;
 
   private constructor() {
     this.walletBin = getWalletBinaryPath();
@@ -96,7 +97,7 @@ export class AztecService {
 
   // ── Network ──
 
-  async connect(nodeUrl: string): Promise<NetworkInfo> {
+  async connect(nodeUrl: string): Promise<NetworkInfo & { staleWalletData?: boolean }> {
     this.nodeUrl = nodeUrl;
 
     const nodeInfo = await this.nodeRpc('node_getNodeInfo') as Record<string, unknown>;
@@ -109,12 +110,34 @@ export class AztecService {
       // Non-critical
     }
 
+    // Detect if this is a different network instance than last time.
+    // protocolVersion changes on each fresh `aztec start --local-network`.
+    const protocolVersion = nodeInfo.protocolVersion as number | undefined;
+    let staleWalletData = false;
+    if (this.lastProtocolVersion !== undefined && protocolVersion !== this.lastProtocolVersion) {
+      staleWalletData = true;
+    }
+    this.lastProtocolVersion = protocolVersion;
+
+    // Also check if wallet has accounts but network is very early (fresh start)
+    if (blockNumber !== undefined && blockNumber <= 5) {
+      try {
+        const accounts = await this.getAccounts();
+        if (accounts.length > 0) {
+          staleWalletData = true;
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
     return {
       connected: true,
       nodeUrl: this.nodeUrl,
       chainId: nodeInfo.l1ChainId as number | undefined,
-      protocolVersion: nodeInfo.protocolVersion as number | undefined,
+      protocolVersion,
       blockNumber,
+      staleWalletData,
     };
   }
 
@@ -360,6 +383,17 @@ export class AztecService {
     this.ensureConnected();
     const { stdout } = await this.wallet(['get-tx', txHash]);
     return { output: stdout.trim() };
+  }
+
+  // ── Wallet Data Management ──
+
+  async clearWalletData(): Promise<void> {
+    try {
+      await fs.rm(WALLET_PXE_DATA_DIR, { recursive: true, force: true });
+      await fs.mkdir(WALLET_PXE_DATA_DIR, { recursive: true });
+    } catch {
+      throw new Error('Failed to clear wallet data directory');
+    }
   }
 
   // ── Helpers ──

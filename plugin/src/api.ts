@@ -52,6 +52,10 @@ export function getNetworkInfo(): Promise<NetworkInfo> {
   return request('/network/info');
 }
 
+export function clearWalletData(): Promise<{ cleared: boolean }> {
+  return request('/network/clear-wallet-data', { method: 'POST' });
+}
+
 // ── Compile ──
 
 export function compile(

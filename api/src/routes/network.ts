@@ -24,6 +24,17 @@ export function createNetworkRouter(aztecService: AztecService) {
     }
   });
 
+  // Clear stale wallet/PXE data (for when local network restarts)
+  router.post('/clear-wallet-data', async (_req, res) => {
+    try {
+      await aztecService.clearWalletData();
+      res.json({ success: true, data: { cleared: true } } satisfies ApiResponse);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to clear wallet data';
+      res.status(500).json({ success: false, error: message } satisfies ApiResponse);
+    }
+  });
+
   router.get('/info', async (_req, res) => {
     try {
       const info = await aztecService.getNetworkInfo();

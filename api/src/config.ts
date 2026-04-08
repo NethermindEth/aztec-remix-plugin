@@ -15,6 +15,8 @@ export function getWalletBinaryPath(): string {
   return path.join(AZTEC_HOME, 'current', 'node_modules', '.bin', 'aztec-wallet');
 }
 
+export const WALLET_PXE_DATA_DIR = path.join(AZTEC_HOME, 'wallet', 'pxe', 'pxe_data');
+
 export const AZTEC_NR_TAG = 'v4.0.0-devnet.2-patch.0';
 
 export const DEFAULT_NARGO_TOML = (name: string) => {

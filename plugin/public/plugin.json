@@ -1,0 +1,13 @@
+{
+  "name": "aztecPlugin",
+  "displayName": "Aztec",
+  "description": "Compile, deploy, and interact with Aztec Noir contracts",
+  "version": "0.1.0",
+  "url": "",
+  "icon": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHJ4PSI0IiBmaWxsPSIjMWUxZTFlIi8+PHRleHQgeD0iNSIgeT0iMTciIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iMTIiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjNTY5Y2Q2Ij5BejwvdGV4dD48L3N2Zz4=",
+  "location": "sidePanel",
+  "methods": [],
+  "events": [],
+  "canActivate": [],
+  "repo": "https://github.com/Giri-Aayush/aztec-remix-plugin"
+}
