@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import * as api from '../api';
 import AccountSelector from './AccountSelector';
 import { validateArg, validateAlias, buildArgs, getAccountRef, LIMITS } from '../utils';
+import { isInitializer, getFunctionParams } from '../types';
 import type { ContractArtifact, AccountInfo, DeployedContract, AbiFunction } from '../types';
 
 interface DeployTabProps {
@@ -26,10 +27,10 @@ export default function DeployTab({ artifacts, accounts, deployedContracts, onDe
 
   const constructor: AbiFunction | undefined = useMemo(() => {
     if (!artifact) return undefined;
-    return artifact.functions.find((f) => f.isInitializer);
+    return artifact.functions.find((f) => isInitializer(f));
   }, [artifact]);
 
-  const constructorParams = constructor?.parameters || [];
+  const constructorParams = constructor ? getFunctionParams(constructor) : [];
 
   // Check if alias already exists
   const aliasExists = contractAlias.trim() &&

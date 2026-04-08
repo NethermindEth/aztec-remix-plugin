@@ -2,11 +2,8 @@ import { useState } from 'react';
 import * as api from '../api';
 import AccountSelector from './AccountSelector';
 import { getAccountRef } from '../utils';
+import { isInitializer, getFunctionParams, HIDDEN_FUNCTIONS } from '../types';
 import type { DeployedContract, AccountInfo, AbiFunction } from '../types';
-
-const HIDDEN_FUNCTIONS = new Set([
-  'public_dispatch', 'process_message', 'sync_state', 'sync_notes', 'process_log',
-]);
 
 interface AuthWitTabProps {
   contracts: DeployedContract[];
@@ -36,7 +33,7 @@ export default function AuthWitTab({ contracts, accounts }: AuthWitTabProps) {
 
   const contract = contracts[selectedContract];
   const callableFns = contract.artifact.functions.filter(
-    (f) => !f.isInternal && !f.isInitializer && !HIDDEN_FUNCTIONS.has(f.name),
+    (f) => !isInitializer(f) && !HIDDEN_FUNCTIONS.has(f.name),
   );
 
   const selectedFn = callableFns.find((f) => f.name === selectedFunction);
@@ -48,7 +45,7 @@ export default function AuthWitTab({ contracts, accounts }: AuthWitTabProps) {
     setResult('');
 
     try {
-      const fnArgs = selectedFn?.parameters.map((p) => args[p.name] || '0') || [];
+      const fnArgs = selectedFn ? getFunctionParams(selectedFn).map((p) => args[p.name] || '0') : [];
 
       if (mode === 'private') {
         const res = await api.createAuthWit({
@@ -144,10 +141,10 @@ export default function AuthWitTab({ contracts, accounts }: AuthWitTabProps) {
         </div>
 
         {/* Function args */}
-        {selectedFn && selectedFn.parameters.length > 0 && (
+        {selectedFn && getFunctionParams(selectedFn).length > 0 && (
           <div className="form-group">
             <label>Function Arguments</label>
-            {selectedFn.parameters.map((p) => (
+            {getFunctionParams(selectedFn).map((p) => (
               <div key={p.name} style={{ marginBottom: 4 }}>
                 <input
                   type="text"

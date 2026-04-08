@@ -2,6 +2,7 @@ import { useState } from 'react';
 import * as api from '../api';
 import AccountSelector from './AccountSelector';
 import { getAccountRef, buildArgs } from '../utils';
+import { getFunctionType, getFunctionParams, isInitializer, HIDDEN_FUNCTIONS } from '../types';
 import type { DeployedContract, AccountInfo, AbiFunction, ContractArtifact } from '../types';
 
 interface InteractTabProps {
@@ -9,21 +10,6 @@ interface InteractTabProps {
   accounts: AccountInfo[];
   artifacts: ContractArtifact[];
   onContractAdded: (contract: DeployedContract) => void;
-}
-
-// Internal/protocol functions that should be hidden from the interact UI
-const HIDDEN_FUNCTIONS = new Set([
-  'public_dispatch',
-  'process_message',
-  'sync_state',
-  'sync_notes',
-  'process_log',
-]);
-
-function getFunctionType(fn: AbiFunction): 'private' | 'public' | 'utility' {
-  if (fn.functionType === 'unconstrained') return 'utility';
-  if (fn.functionType === 'secret') return 'private';
-  return 'public';
 }
 
 function FunctionCard({
@@ -52,7 +38,7 @@ function FunctionCard({
     setResult(null);
 
     try {
-      const argValues = buildArgs(fn.parameters, args);
+      const argValues = buildArgs(getFunctionParams(fn), args);
 
       const res = await api.interact(
         contractAddress,
@@ -82,8 +68,8 @@ function FunctionCard({
 
       {expanded && (
         <div className="fn-card-body">
-          {fn.parameters.length > 0 &&
-            fn.parameters.map((p) => (
+          {getFunctionParams(fn).length > 0 &&
+            getFunctionParams(fn).map((p) => (
               <div className="form-group" key={p.name}>
                 <label>
                   {p.name} <span style={{ opacity: 0.6 }}>({p.type.kind})</span>
@@ -221,7 +207,7 @@ export default function InteractTab({ contracts, accounts, artifacts, onContract
 
   // Filter out internal/initializer/protocol functions
   const callableFunctions = contract.artifact.functions.filter(
-    (f) => !f.isInternal && !f.isInitializer && !HIDDEN_FUNCTIONS.has(f.name),
+    (f) => !isInitializer(f) && !HIDDEN_FUNCTIONS.has(f.name),
   );
 
   const privateFns = callableFunctions.filter((f) => getFunctionType(f) === 'private');
